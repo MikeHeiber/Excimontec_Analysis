@@ -1,11 +1,38 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 #pragma IgorVersion = 6.3 // Minimum Igor version required
-#pragma version = 1.0-beta.2
+#pragma version = 0.1.1-alpha
 
 // Copyright (c) 2018 Michael C. Heiber
-// This source file is part of the Excimontec project, which is subject to the MIT License.
+// This source file is part of the Excimontec_Analysis project, which is subject to the MIT License.
 // For more information, see the LICENSE file that accompanies this software.
-// The Excimontec project can be found on Github at https://github.com/MikeHeiber/Excimontec
+// The Excimontec_Analysis project can be found on Github at https://github.com/MikeHeiber/Excimontec_Analysis
+
+Function/S EMT_ChooseJob(test_type)
+	String test_type
+	String original_folder = GetDataFolder(1)
+	// Build the sample list
+	String job_id
+	SetDataFolder root:Excimontec:$test_type
+	String job_list = ""
+	DFREF dfr1 = GetDataFolderDFR()
+	Variable N_jobs = CountObjectsDFR(dfr1,4)
+	String folder_name
+	Variable i
+	for(i=0;i<N_jobs;i+=1)
+		folder_name = GetIndexedObjNameDFR(dfr1,4,i)
+		job_list = AddListItem(folder_name,job_list)
+	endfor
+	// Prompt user to choose the sample
+	Prompt job_id, "Choose the job id:", popup, job_list
+	DoPrompt "Make Selections",job_id
+	// User cancelled operation
+	if(V_flag==1)
+		SetDataFolder original_folder
+		return ""
+	endif
+	SetDataFolder original_folder
+	return job_id
+End
 
 Function EMT_ImportData()
 	String original_folder = GetDataFolder(1)
@@ -99,6 +126,11 @@ Function EMT_ImportData()
 		Make/N=1/T $"correlation_model"
 		Wave/T correlation_model
 	endif
+	Wave/Z correlation_length
+	if(!WaveExists(correlation_length))
+		Make/N=1 $"correlation_length"
+		Wave correlation_length
+	endif
 	Wave/Z N_carriers
 	if(!WaveExists(N_carriers))
 		Make/N=1/D $"N_carriers"
@@ -158,25 +190,26 @@ Function EMT_ImportData()
 	N_variants[index] = {str2num(StringFromList(0,StringFromList(1,analysisWave0[1]," on ")," proc"))}
 	// Record disorder model used
 	// Gaussian
-	if(StringMatch(StringFromList(0,Parameters[101]," //"),"true"))
+	if(StringMatch(StringFromList(0,Parameters[102]," //"),"true"))
 		// Correlated
-		if(StringMatch(StringFromList(0,Parameters[107]," //"),"true"))
-			Disorder_model[index] = {"Gaussian-correlated"}
+		if(StringMatch(StringFromList(0,Parameters[108]," //"),"true"))
+			disorder_model[index] = {"Gaussian-correlated"}
+			correlation_length[index] = {str2num(StringFromList(0,Parameters[109]," //"))}
 			// Gaussian kernel
-			if(StringMatch(StringFromList(0,Parameters[109]," //"),"true"))
-				Correlation_model[index] = {"Gaussian kernel"}
+			if(StringMatch(StringFromList(0,Parameters[110]," //"),"true"))
+				correlation_model[index] = {"Gaussian kernel"}
 			// Power kernel
 			else
-				String power_kernel_exponent = StringFromList(0,Parameters[111]," //")
-				Correlation_model[index] = {"Power kernel, "+power_kernel_exponent}
+				String power_kernel_exponent = StringFromList(0,Parameters[112]," //")
+				correlation_model[index] = {"Power kernel, "+power_kernel_exponent}
 			endif
 		// Uncorrelated
 		else
-			Disorder_model[index] = {"Gaussian-uncorrelated"}
-			Correlation_model[index] = {"none"}
+			disorder_model[index] = {"Gaussian-uncorrelated"}
+			correlation_model[index] = {"none"}
 		endif
 	// Exponential
-	elseif(StringMatch(StringFromList(0,Parameters[104]," //"),"true"))
+	elseif(StringMatch(StringFromList(0,Parameters[105]," //"),"true"))
 		Disorder_model[index] = {"Exponential-uncorrelated"}
 		Correlation_model[index] = {"none"}
 	// None
@@ -216,39 +249,34 @@ Function EMT_ImportData()
 		Wave/T resultsWave0
 		// Determine relevant disorder
 		// Gaussian DOS
-		if(StringMatch(StringFromList(0,Parameters[101]," //"),"true"))
+		if(StringMatch(StringFromList(0,Parameters[102]," //"),"true"))
 			// Electron transport
 			if(StringMatch(StringFromList(0,parameters[35]," //"),"electron"))
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[103]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[104]," //"))}
 			// Hole transport
 			else
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[102]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[103]," //"))}
 			endif
 		// Exponential DOS
-		elseif(StringMatch(StringFromList(0,Parameters[104]," //"),"true"))
+		elseif(StringMatch(StringFromList(0,Parameters[105]," //"),"true"))
 			// Electron transport
 			if(StringMatch(StringFromList(0,parameters[35]," //"),"electron"))
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[106]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[107]," //"))}
 			// Hole transport
 			else
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[105]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[106]," //"))}
 			endif
 		endif
 		// Determine relevant localization
 		// Electron transport
 		if(StringMatch(StringFromList(0,parameters[35]," //"),"electron"))
-			localization_nm[index] = {1/str2num(StringFromList(0,parameters[86]," //"))}
+			localization_nm[index] = {1/str2num(StringFromList(0,parameters[87]," //"))}
 		// Hole transport
 		else
-			localization_nm[index] = {1/str2num(StringFromList(0,parameters[85]," //"))}
+			localization_nm[index] = {1/str2num(StringFromList(0,parameters[86]," //"))}
 		endif
-		if(version_num<1)
-			mobility_avg[index] = {str2num(StringFromList(2,resultsWave0[1],","))}
-			mobility_stdev[index] = {NaN}
-		else
-			mobility_avg[index] = {str2num(StringFromList(3,resultsWave0[1],","))}
-			mobility_stdev[index] = {str2num(StringFromList(4,resultsWave0[1],","))}
-		endif
+		mobility_avg[index] = {str2num(StringFromList(3,resultsWave0[1],","))}
+		mobility_stdev[index] = {str2num(StringFromList(4,resultsWave0[1],","))}
 		calc_time_min[index] = {str2num(StringFromList(4,analysisWave0[2]," "))}
 		// Clean Up
 		KillWaves resultsWave0
@@ -258,7 +286,7 @@ Function EMT_ImportData()
 		field = abs(internal_potential_V)/(1e-7*lattice_height*unit_size_nm)
 		field_sqrt = sqrt(abs(internal_potential_V)/(1e-7*lattice_height*unit_size_nm))
 		// Calculate effective disroder for Gaussian DOS
-		if(StringMatch(StringFromList(0,Parameters[101]," //"),"true"))
+		if(StringMatch(StringFromList(0,Parameters[102]," //"),"true"))
 			disorder_norm = disorder_eV/(8.617e-5*temperature_K)
 		endif
 	endif
