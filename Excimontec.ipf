@@ -1,6 +1,6 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 #pragma IgorVersion = 6.3 // Minimum Igor version required
-#pragma version = 0.1.2-alpha
+#pragma version = 0.2-alpha
 
 // Copyright (c) 2018 Michael C. Heiber
 // This source file is part of the Excimontec_Analysis project, which is subject to the MIT License.
