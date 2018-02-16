@@ -90,7 +90,7 @@ Function EMT_ImportData()
 	String file_list = IndexedFile(folder_path,-1,".txt")
 	String parameter_filename
 	if(ItemsInList(file_list))
-		parameter_filename = StringFromList(0,ListMatch(file_list,"parameters_*"))
+		parameter_filename = StringFromList(0,ListMatch(file_list,"parameters*"))
 	else
 		Print "Error! Parameter file not found!"
 		return NaN
@@ -118,6 +118,11 @@ Function EMT_ImportData()
 	if(!WaveExists(version))
 		Make/N=1/T $"version"
 		Wave/T version
+	endif
+	Wave/Z set_num
+	if(!WaveExists(set_num))
+		Make/N=1 $"set_num"
+		Wave set_num
 	endif
 	Wave/T/Z job_id
 	if(!WaveExists(job_id))
@@ -208,6 +213,7 @@ Function EMT_ImportData()
 			index = numpnts(job_id)
 		endif	
 	endif
+	set_num[index] = {0}
 	version[index] = {version_used}
 	job_id[index] = {job_name}
 	// Record morphology used
@@ -366,6 +372,7 @@ Function EMT_ImportData()
 		N_carriers[index] = {str2num(StringFromList(0,Parameters[38]," //"))}
 		mobility_avg[index] = {str2num(StringFromList(3,resultsWave0[1],","))}
 		mobility_stdev[index] = {str2num(StringFromList(4,resultsWave0[1],","))}
+		
 		// Clean Up
 		KillWaves resultsWave0
 		// Update Analysis
@@ -541,13 +548,13 @@ Function EMT_ImportData()
 		// Import transient data
 		SetDataFolder $job_name
 		LoadWave/J/D/W/N/O/K=0/P=folder_path/Q "dynamics_average_transients.txt"
-		//Wave exciton_msdv = $"Exciton_MSDV__cm_2_s__1_"
-		//Wave electron_msdv = $"Electron_MSDV__cm_2_s__1_"
-		//Wave hole_msdv = $"Hole_MSDV__cm_2_s__1_"
-		//Duplicate/O exciton_msdv Exciton_Diffusion_Coef Electron_Mobility Hole_Mobility
-		//Exciton_Diffusion_Coef = exciton_msdv/6
-		//Electron_Mobility = electron_msdv/(6*8.61733e-5*temperature_K[index])
-		//Hole_Mobility = hole_msdv/(6*8.61733e-5*temperature_K[index])
+		Wave exciton_msdv = $"Exciton_MSDV__cm_2_s__1_"
+		Wave electron_msdv = $"Electron_MSDV__cm_2_s__1_"
+		Wave hole_msdv = $"Hole_MSDV__cm_2_s__1_"
+		Duplicate/O exciton_msdv Exciton_Diffusion_Coef Electron_Mobility Hole_Mobility
+		Exciton_Diffusion_Coef = exciton_msdv/6
+		Electron_Mobility = electron_msdv/(6*8.61733e-5*temperature_K[index])
+		Hole_Mobility = hole_msdv/(6*8.61733e-5*temperature_K[index])
 	endif
 	SetDataFolder original_folder
 End
