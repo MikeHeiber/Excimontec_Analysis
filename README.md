@@ -7,7 +7,7 @@ Excimontec is an open-source KMC simulation software package for modeling organi
 
 - Import Excimontec job data folders from Time of Flight Tests, IQE Tests, and Dynamics Tests, into an organized folder structure in Igor
 - Plot time of flight current density and average normalized energy transients, transit time distributions, and charge extraction map
-- Plot dynamics test species density and energy transients
+- Plot dynamics test species density, energy, and mean squared displacement velocity transients
 - Plot IQE test charge extraction maps
 
 ### Installation Instructions:
