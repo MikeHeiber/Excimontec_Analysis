@@ -44,7 +44,7 @@ Function EMT_GraphDynamicsTransients([job_id])
 	ModifyGraph mirror(bottom)=1
 	ModifyGraph axOffset(left)=-3,axOffset(bottom)=-0.3125,axOffset(right)=-2
 	ModifyGraph margin(right)=44
-	Label left "Density (cm\\S-3\\M)"
+	Label left "Species Density (cm\\S-3\\M)"
 	Label right "Average Normalized Energy (eV)"
 	Label bottom "Time (s)"
 	SetAxis/A=2 left
@@ -55,25 +55,25 @@ Function EMT_GraphDynamicsTransients([job_id])
 	TextBox/C/N=text1/A=MT/F=0/X=0.00/Y=5.00 job_id
 	ResumeUpdate
 	// Plot Mean Squared Displacement Derivative Data
-	//Wave exciton_msdv = $"Exciton_MSDV__cm_2_s__1_"
-	//Wave electron_msdv = $"Electron_MSDV__cm_2_s__1_"
-	//Wave hole_msdv = $"Hole_MSDV__cm_2_s__1_"
-	//PauseUpdate; Silent 1		// building window...
-	//Display /W=(720,100,1100,400) exciton_msdv vs times
-	//AppendToGraph electron_msdv vs times
-	//AppendToGraph hole_msdv vs times
-	//ModifyGraph mode=4,msize=2
-	//ModifyGraph marker[0]=19,marker[1]=16,marker[2]=17
-	//ModifyGraph useMrkStrokeRGB=1
-	//ModifyGraph rgb[0]=(0,0,65535), rgb[1]=(65535,0,0), rgb[2]=(2,39321,1)
-	//ModifyGraph log=1, standoff=0, tick=2, mirror=1
-	//ModifyGraph margin(left)=43, margin(right)=10, margin(top)=10
-	//SetAxis/A=2 left
-	//SetAxis/A/N=1 bottom
-	//Label left "d 〈 r\\S2\\M 〉 / dt (cm\\S2\\Ms\\S-1\\M)"
-	//Label bottom "Time (s)"
-	//Legend/C/N=text0/J/F=0/E=2/RT/X=5.00/Y=5.00 "\\s(Exciton_MSDV__cm_2_s__1_) Excitons\r\\s(Electron_MSDV__cm_2_s__1_) Electrons\r\\s(Hole_MSDV__cm_2_s__1_) Holes"
-	//TextBox/C/N=text1/A=MT/F=0/X=0.00/Y=5.00 job_id
+	Wave exciton_msdv = $"Exciton_MSDV__cm_2_s__1_"
+	Wave electron_msdv = $"Electron_MSDV__cm_2_s__1_"
+	Wave hole_msdv = $"Hole_MSDV__cm_2_s__1_"
+	PauseUpdate; Silent 1		// building window...
+	Display /W=(720,100,1100,400) exciton_msdv vs times
+	AppendToGraph electron_msdv vs times
+	AppendToGraph hole_msdv vs times
+	ModifyGraph mode=4,msize=2
+	ModifyGraph marker[0]=19,marker[1]=16,marker[2]=17
+	ModifyGraph useMrkStrokeRGB=1
+	ModifyGraph rgb[0]=(0,0,65535), rgb[1]=(65535,0,0), rgb[2]=(2,39321,1)
+	ModifyGraph log=1, standoff=0, tick=2, mirror=1
+	ModifyGraph margin(left)=43, margin(right)=10, margin(top)=10
+	SetAxis/A=2 left
+	SetAxis/A/N=1 bottom
+	Label left "d 〈 r\\S2\\M 〉 / dt (cm\\S2\\Ms\\S-1\\M)"
+	Label bottom "Time (s)"
+	Legend/C/N=text0/J/F=0/E=0/RT/X=5.00/Y=5.00 "\\s(Exciton_MSDV__cm_2_s__1_) Excitons\r\\s(Electron_MSDV__cm_2_s__1_) Electrons\r\\s(Hole_MSDV__cm_2_s__1_) Holes"
+	TextBox/C/N=text1/A=MT/F=0/X=0.00/Y=5.00 job_id
 End
 
 Function EMT_GraphExtractionMaps(test_type,[job_id])
@@ -90,7 +90,12 @@ Function EMT_GraphExtractionMaps(test_type,[job_id])
 	if(StringMatch(variant_id,""))
 		return NaN
 	endif
-	SetDataFolder root:Excimontec:$(test_type):$(job_id):$"Extraction Map Data"
+	SetDataFolder root:Excimontec:$(test_type):$(job_id)
+	if(DataFolderExists("Extraction Map Data")==0)
+		Print "Error! Job "+job_id+" does not have extraction map data."
+		return NaN
+	endif
+	SetDAtaFolder $"Extraction Map Data"
 	if(StringMatch(test_type,"IQE Tests"))		
 		Wave extraction_prob = $("electron_extraction_prob"+variant_id)
 		EMT_GraphExtractionMap(extraction_prob)
@@ -239,6 +244,7 @@ Function EMT_GraphTOFTransients([job_id]) : Graph
 	ModifyGraph log(left)=1, log(bottom)=1
 	ModifyGraph standoff=0, tick=2
 	ModifyGraph mirror(bottom)=1
+	ModifyGraph lowTrip(right)=0.01
 	ModifyGraph axOffset(left)=-3,axOffset(bottom)=-0.3125,axOffset(right)=-2
 	Label left "Average Mobility (cm\\S2\\MV\\S-1\\Ms\\S-1\\M)"
 	Label bottom "Time (s)"
