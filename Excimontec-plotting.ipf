@@ -76,6 +76,54 @@ Function EMT_GraphDynamicsTransients([job_id])
 	TextBox/C/N=text1/A=MT/F=0/X=0.00/Y=5.00 job_id
 End
 
+Function EMT_GraphEnergiesCrossSection(slice_num,unit_size) : Graph
+	Variable slice_num
+	Variable unit_size
+	String original_folder = GetDataFolder(1)
+	LoadWave/N=tempWave/D/J/K=1/L={0,0,0,0,0}/O/Q 
+	Wave tempWave0 = $("tempWave0")
+	WaveStats/Q tempWave0
+	Variable size = V_npnts
+	Variable Length = tempWave0[0]
+	Variable Width = tempWave0[1]
+	Variable Height = tempWave0[2]
+	Make/O/I/N=(Width*Height) $("y_data_"+num2str(slice_num))
+	Make/O/I/N=(Width*Height) $("z_data_"+num2str(slice_num))
+	Make/O/D/N=(Width*Height) $("energy_data_"+num2str(slice_num))
+	Wave y_data = $("y_data_"+num2str(slice_num))
+	Wave z_data = $("z_data_"+num2str(slice_num))
+	Wave energy_data = $("energy_data_"+num2str(slice_num))
+	Variable x
+	Variable y
+	Variable z
+	Variable i = 0
+	Variable j = 3
+	for(x=0;x<Length;x+=1)
+		for(y=0;y<Width;y+=1)
+			for(z=0;z<Height;z+=1)
+				if(x==slice_num)
+					y_data[i] = y
+					z_data[i] = z
+					energy_data[i] = tempWave0[j]
+					i += 1
+				endif
+				j += 1
+				if(x>slice_num)
+					break
+				endif
+			endfor
+			if(x>slice_num)
+				break
+			endif
+		endfor
+		if(x>slice_num)
+			break
+		endif
+	endfor
+	KillWaves tempWave0
+	SetDataFolder original_folder
+End
+
 Function EMT_GraphExtractionMaps(test_type,[job_id])
 	String test_type
 	String job_id
@@ -165,6 +213,87 @@ Function EMT_GraphTOFEnergy([job_id]) : Graph
 	Label bottom "Time (s)"
 	SetAxis/A left
 	SetAxis/A bottom
+	SetDataFolder original_folder
+End
+
+Function EMT_GraphTOFMobilityF(set_start,set_end) : Graph
+	int set_start
+	int set_end
+	int i
+	int set_counter = 0
+	String set_list = ""
+	for(i=set_start;i<=set_end;i++)
+		set_list = AddListItem(num2str(i),set_list,",",ItemsInList(set_list,","))
+	endfor
+	EMT_GraphTOFMobilityF_List(set_list)
+End
+
+Function EMT_GraphTOFMobilityF_List(set_list) : Graph
+	String set_list
+	String original_folder = GetDataFolder(1)
+	SetDataFolder root:Excimontec:$"Time of Flight Tests":
+	Wave mobility_avg
+	Wave field_sqrt
+	Wave set_num
+	Variable i
+	Variable set_counter = 0
+	for(i=0;i<ItemsInList(set_list,",");i++)
+		Variable index_start = -1
+		Variable index_end = -1
+		Variable j
+		Variable set_number = str2num(StringFromList(i,set_list,","))
+		for(j=0;j<numpnts(set_num);j++)
+			if(index_start==-1 && set_num[j]==set_number)
+				index_start = j
+			elseif(index_start!=-1 && set_num[j]!=set_number)
+				index_end = j-1
+				break
+			elseif(index_start!=-1 && j==numpnts(set_num)-1)
+				index_end = j
+				break
+			endif
+		endfor
+		if(index_start==-1 || index_end==-1)
+			Print "Error! Set "+num2str(i)+" could not be found."
+			return NaN
+		endif
+		if(set_counter==0)
+			PauseUpdate;
+			Display/W=(100,100,500,350) mobility_avg[index_start,index_end] vs field_sqrt[index_start,index_end]
+		else
+			AppendToGraph mobility_avg[index_start,index_end] vs field_sqrt[index_start,index_end]
+		endif
+		set_counter++
+	endfor
+	for(i=0;i<set_counter;i++)
+		if(i==0)
+			ModifyGraph marker[i] = 19
+			ModifyGraph rgb[i] = (0,0,65535)
+		elseif(i==1)
+			ModifyGraph marker[i] = 16
+			ModifyGraph rgb[i] = (52428,1,1)
+		elseif(i==2)
+			ModifyGraph marker[i] = 17
+			ModifyGraph rgb[i] = (2,39321,1)
+		elseif(i==3)
+			ModifyGraph marker[i] = 23
+			ModifyGraph rgb[i] = (0,0,0)
+		elseif(i==4)
+			ModifyGraph marker[i] = 46
+			ModifyGraph rgb[i] = (1,52528,52428)
+		elseif(i==5)
+			ModifyGraph marker[i] = 49
+			ModifyGraph rgb[i] = (65535,0,52428)
+		elseif(i==6)
+			ModifyGraph marker[i] = 26
+			ModifyGraph rgb[i] = (65535,43690,0)
+		endif
+	endfor
+	ModifyGraph margin(top)=10, margin(right)=14, margin(bottom)=36, margin(left)=46
+	ModifyGraph mode=4, msize=2, log(left)=1, tick=2, mirror=1, standoff=0
+	ModifyGraph logHTrip(left)=100,logLTrip(left)=0.01
+	Label left "Charge Carrier Mobility (cm\\S2\\MV\\S-1\\Ms\\S-1\\M)"
+	Label bottom "Electric Field, F\\S1/2\\M (V/cm)\\S1/2\\M"
 	SetDataFolder original_folder
 End
 

@@ -22,6 +22,7 @@ Function/S EMT_ChooseJob(test_type)
 		folder_name = GetIndexedObjNameDFR(dfr1,4,i)
 		job_list = AddListItem(folder_name,job_list)
 	endfor
+	job_list = SortList(job_list,";",16)
 	// Prompt user to choose the sample
 	Prompt job_id, "Choose the job id:", popup, job_list
 	DoPrompt "Make Selections",job_id
@@ -69,16 +70,29 @@ Function/S EMT_ChooseVariant(test_type,job_id)
 	return variant_id
 End
 
-Function EMT_ImportData()
+Function EMT_ImportData([folder_pathname])
+	String folder_pathname
 	String original_folder = GetDataFolder(1)
 	NewDataFolder/O/S root:Excimontec
 	// Open new job folder
-	NewPath/O/Q folder_path
-	if(V_flag!=0)
-		return NaN
+	if(ParamIsDefault(folder_pathname))
+		NewPath/O/Q folder_path
+		if(V_flag!=0)
+			return NaN
+		endif
+		PathInfo folder_path
+		folder_pathname = S_path
+		Print "EMT_ImportData(folder_pathname=\""+folder_pathname+"\")"
+	else
+		// Check that path exists
+		GetFileFolderInfo/Q/Z=1 folder_pathname
+		if(V_Flag!=0)
+			Print "Error! Job folder not found."
+			return NaN
+		endif
+		NewPath/O/Q folder_path folder_pathname
 	endif
-	PathInfo folder_path
-	String job_name = StringFromList(ItemsInList(S_path,":")-1,S_path,":")
+	String job_name = StringFromList(ItemsInList(folder_pathname,":")-1,folder_pathname,":")
 	// Load analysis summary file to extract version number
 	LoadWave/J/A=analysisWave/P=folder_path/K=0/Q "analysis_summary.txt"
 	Wave/T analysisWave0
@@ -245,17 +259,17 @@ Function EMT_ImportData()
 	endif
 	// Record disorder model used
 	// Gaussian
-	if(StringMatch(StringFromList(0,Parameters[105]," //"),"true"))
+	if(StringMatch(StringFromList(0,Parameters[111]," //"),"true"))
 		// Correlated
-		if(StringMatch(StringFromList(0,Parameters[111]," //"),"true"))
+		if(StringMatch(StringFromList(0,Parameters[117]," //"),"true"))
 			disorder_model[index] = {"Gaussian-correlated"}
-			correlation_length_nm[index] = {str2num(StringFromList(0,Parameters[112]," //"))}
+			correlation_length_nm[index] = {str2num(StringFromList(0,Parameters[118]," //"))}
 			// Gaussian kernel
-			if(StringMatch(StringFromList(0,Parameters[113]," //"),"true"))
+			if(StringMatch(StringFromList(0,Parameters[119]," //"),"true"))
 				correlation_model[index] = {"Gaussian kernel"}
 			// Power kernel
 			else
-				String power_kernel_exponent = StringFromList(0,Parameters[114]," //")
+				String power_kernel_exponent = StringFromList(0,Parameters[121]," //")
 				correlation_model[index] = {"Power kernel, "+power_kernel_exponent}
 			endif
 		// Uncorrelated
@@ -265,7 +279,7 @@ Function EMT_ImportData()
 			correlation_length_nm[index] = {0}
 		endif
 	// Exponential
-	elseif(StringMatch(StringFromList(0,Parameters[108]," //"),"true"))
+	elseif(StringMatch(StringFromList(0,Parameters[115]," //"),"true"))
 		Disorder_model[index] = {"Exponential-uncorrelated"}
 		Correlation_model[index] = {"none"}
 	// None
@@ -314,8 +328,14 @@ Function EMT_ImportData()
 		// Load TOF Files
 		SetDataFolder $job_name
 		LoadWave/J/D/W/N/O/K=0/P=folder_path/Q "ToF_average_transients.txt"
-		LoadWave/J/D/W/N/O/K=0/P=folder_path/Q "ToF_transit_time_dist.txt"
+		LoadWave/J/D/W/N/O/K=0/P=folder_path/Q "ToF_transit_time_hist.txt"
 		LoadWave/J/Q/A=resultsWave/P=folder_path/K=2/V={""," $",0,0} "ToF_results.txt"
+		// Determine absolute value of the current density
+		Wave current = $"Current__mA_cm__2_"
+		current = abs(current)
+		// Determine absolute value of the mobility
+		Wave mobility = $"Average_Mobility__cm_2_V__1_s__"
+		mobility = abs(mobility)
 		// Load charge extraction map data
 		if(StringMatch(StringFromList(0,Parameters[44]," //"),"true"))	
 			NewDataFolder/O/S :$"Extraction Map Data"
@@ -343,36 +363,39 @@ Function EMT_ImportData()
 		Wave/T resultsWave0
 		// Determine relevant disorder model used
 		// Gaussian
-		if(StringMatch(StringFromList(0,Parameters[105]," //"),"true"))
+		if(StringMatch(StringFromList(0,Parameters[111]," //"),"true"))
 			// Electron transport
 			if(StringMatch(StringFromList(0,Parameters[37]," //"),"electron"))
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[107]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[113]," //"))}
 			// Hole transport
 			else
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[106]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[112]," //"))}
 			endif
+			// Create normalized energy waves
+			Wave Average_Energy__eV_
+			Duplicate/O Average_Energy__eV_ Average_Energy_Normalized
+			Average_Energy_Normalized /= disorder_eV[index]^2/(8.6173e-5*temperature_K[index])
 		// Exponential
-		elseif(StringMatch(StringFromList(0,Parameters[108]," //"),"true"))
+		elseif(StringMatch(StringFromList(0,Parameters[114]," //"),"true"))
 			// Electron transport
 			if(StringMatch(StringFromList(0,parameters[37]," //"),"electron"))
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[110]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[116]," //"))}
 			// Hole transport
 			else
-				disorder_eV[index] = {str2num(StringFromList(0,parameters[109]," //"))}
+				disorder_eV[index] = {str2num(StringFromList(0,parameters[115]," //"))}
 			endif
 		endif
 		// Determine relevant localization
 		// Electron transport
 		if(StringMatch(StringFromList(0,parameters[37]," //"),"electron"))
-			localization_nm[index] = {1/str2num(StringFromList(0,parameters[90]," //"))}
+			localization_nm[index] = {1/str2num(StringFromList(0,parameters[96]," //"))}
 		// Hole transport
 		else
-			localization_nm[index] = {1/str2num(StringFromList(0,parameters[89]," //"))}
+			localization_nm[index] = {1/str2num(StringFromList(0,parameters[95]," //"))}
 		endif
 		N_carriers[index] = {str2num(StringFromList(0,Parameters[38]," //"))}
 		mobility_avg[index] = {str2num(StringFromList(3,resultsWave0[1],","))}
 		mobility_stdev[index] = {str2num(StringFromList(4,resultsWave0[1],","))}
-		
 		// Clean Up
 		KillWaves resultsWave0
 		// Update Analysis
@@ -381,7 +404,7 @@ Function EMT_ImportData()
 		field = abs(internal_potential_V)/(1e-7*lattice_height*unit_size_nm)
 		field_sqrt = sqrt(abs(internal_potential_V)/(1e-7*lattice_height*unit_size_nm))
 		// Calculate effective disorder for Gaussian DOS
-		if(StringMatch(StringFromList(0,Parameters[105]," //"),"true"))
+		if(StringMatch(StringFromList(0,Parameters[111]," //"),"true"))
 			disorder_norm = disorder_eV/(8.617e-5*temperature_K)
 		endif
 	elseif(IQE_Test)
@@ -557,6 +580,65 @@ Function EMT_ImportData()
 		Hole_Mobility = hole_msdv/(6*8.61733e-5*temperature_K[index])
 	endif
 	SetDataFolder original_folder
+End
+
+Function EMT_ImportJobArrays(job_list,job_array_size,folder_pathname)
+	Wave/T job_list
+	Variable job_array_size
+	String	folder_pathname
+	String original_folder = GetDataFolder(1)
+	Variable i
+	Variable j
+	for(i=0;i<numpnts(job_list);i+=1)
+		for(j=0;j<job_array_size;j+=1)
+			String job_pathname = folder_pathname + job_list[i] + "_" + num2str(j)
+			// Check that path exists
+			GetFileFolderInfo/Q/Z=1 job_pathname
+			if(V_Flag!=0)
+				Print "Error! Job folder "+job_pathname+" not found."
+				return Nan
+			endif
+			EMT_ImportData(folder_pathname=job_pathname)
+		endfor
+	endfor
+	// Record job array set numbers
+	Wave set_nums = $"root:Excimontec:'Time of Flight Tests':set_num"
+	for(i=0;i<numpnts(job_list);i+=1)
+		for(j=0;j<job_array_size;j+=1)
+			set_nums[i*job_array_size+j] = i
+		endfor
+	endfor
+	SetDataFolder original_folder
+End
+
+Function EMT_ImportJobArraysGUI()
+	String original_folder = GetDataFolder(1)
+	// Prompt user to enter job array info
+	String list_pathname
+	Variable job_array_size
+	Prompt list_pathname, "Enter the path of the job array list wave:"
+	Prompt job_array_size, "Enter the number of jobs in each job array:"
+	DoPrompt "Enter job array info", list_pathname, job_array_size
+	// Check for user cancel
+	if(V_flag==1)
+		return NaN
+	endif
+	// Prompt user to select location of all job folders
+	String folder_pathname
+	NewPath/O/Q folder_path
+	if(V_flag!=0)
+		return NaN
+	endif
+	PathInfo folder_path
+	folder_pathname = S_path
+	// Check if job array list wave exists
+	Wave/T job_list = $list_pathname
+	if(!WaveExists(job_list))
+		Print "Error! Job array list wave not found."
+		return NaN
+	endif
+	EMT_ImportJobArrays(job_list,job_array_size,folder_pathname)
+	Print "EMT_ImportJobArrays(\""+list_pathname+"\","+num2str(job_array_size)+",\""+folder_pathname+"\")"
 End
 
 Function EMT_DifferentiateLog(wave_y,wave_x,)
