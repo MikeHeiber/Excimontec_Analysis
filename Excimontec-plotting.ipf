@@ -1,9 +1,9 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 #pragma IgorVersion = 6.3 // Minimum Igor version required
-#pragma version = 0.2-alpha
+#pragma version = 1.0-beta.1
 
-// Copyright (c) 2018 Michael C. Heiber
+// Copyright (c) 2018-2019 Michael C. Heiber
 // This source file is part of the Excimontec_Analysis project, which is subject to the MIT License.
 // For more information, see the LICENSE file that accompanies this software.
 // The Excimontec_Analysis project can be found on Github at https://github.com/MikeHeiber/Excimontec_Analysis
@@ -44,6 +44,7 @@ Function EMT_GraphDynamicsTransients([job_id])
 	ModifyGraph mirror(bottom)=1
 	ModifyGraph axOffset(left)=-3,axOffset(bottom)=-0.3125,axOffset(right)=-2
 	ModifyGraph margin(right)=44
+	ModifyGraph logLabel=1,logTicks=3
 	Label left "Species Density (cm\\S-3\\M)"
 	Label right "Average Normalized Energy (eV)"
 	Label bottom "Time (s)"
@@ -67,6 +68,7 @@ Function EMT_GraphDynamicsTransients([job_id])
 	ModifyGraph useMrkStrokeRGB=1
 	ModifyGraph rgb[0]=(0,0,65535), rgb[1]=(65535,0,0), rgb[2]=(2,39321,1)
 	ModifyGraph log=1, standoff=0, tick=2, mirror=1
+	ModifyGraph logLabel=1,logTicks=3
 	ModifyGraph margin(left)=43, margin(right)=10, margin(top)=10
 	SetAxis/A=2 left
 	SetAxis/A/N=1 bottom
@@ -217,10 +219,10 @@ Function EMT_GraphTOFEnergy([job_id]) : Graph
 End
 
 Function EMT_GraphTOFMobilityF(set_start,set_end) : Graph
-	int set_start
-	int set_end
-	int i
-	int set_counter = 0
+	Variable set_start
+	Variable set_end
+	Variable i
+	Variable set_counter = 0
 	String set_list = ""
 	for(i=set_start;i<=set_end;i++)
 		set_list = AddListItem(num2str(i),set_list,",",ItemsInList(set_list,","))
@@ -404,5 +406,42 @@ Function EMT_GraphTOFTransitDist([job_id])
 	Label left "Probability Density"
 	Label bottom "Transit Time (s)"
 	TextBox/C/N=text0/A=RT/F=0/X=8.00/Y=8.00 job_id
+	SetDataFolder original_folder
+End
+
+Function EMT_GraphTOFTransitDists([set_id])
+	String set_id
+	String original_folder = GetDataFolder(1)
+	if(ParamIsDefault(set_id))
+		set_id = EMT_ChooseSet("Time of Flight Tests")
+		if(StringMatch(set_id,""))
+			 return NaN
+		 endif
+		 Print "•EMT_GraphTOFTransitDists(set_id=\""+set_id+"\")"
+	endif
+	SetDataFolder root:Excimontec:$"Time of Flight Tests":
+	Wave set_num
+	Wave/T job_id
+	Variable i
+	Variable doAppend = 0
+	for(i=0;i<numpnts(set_num);i+=1)
+		if(set_num[i]==str2num(set_id))
+			SetDataFolder root:Excimontec:$"Time of Flight Tests":$(job_id[i])
+			if(doAppend)
+				AppendtoGraph :Probability vs :Transit_Time__s_
+			else
+				Display /W=(100,100,520,400) :Probability vs :Transit_Time__s_
+				doAppend = 1
+			endif
+		endif
+	endfor
+	ModifyGraph mirror=1, standoff=0, tick=2
+	ModifyGraph log(bottom)=1
+	ModifyGraph mode=4,msize=2,marker=19
+	ModifyGraph useMrkStrokeRGB=1
+	ModifyGraph margin(right)=7, margin(top)=10, margin(left)=43
+	Label left "Probability Density"
+	Label bottom "Transit Time (s)"
+	TextBox/C/N=text0/A=LT/F=0/X=8.00/Y=8.00 set_id
 	SetDataFolder original_folder
 End
